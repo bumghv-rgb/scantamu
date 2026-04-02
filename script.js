@@ -1,5 +1,6 @@
 // Database Lokal
 let logs = JSON.parse(localStorage.getItem('v_offline_logs')) || [];
+let html5QrCode; 
 
 // --- SISTEM TEMA ---
 function toggleTheme() {
@@ -10,11 +11,15 @@ function toggleTheme() {
 }
 
 function updateThemeUI(isDark) {
-    document.getElementById('theme-icon').innerText = isDark ? '☀️' : '🌙';
-    document.getElementById('theme-text').innerText = isDark ? 'Mode Terang' : 'Mode Gelap';
+    const icon = document.getElementById('theme-icon');
+    const text = document.getElementById('theme-text');
+    if (icon && text) {
+        icon.innerText = isDark ? '☀️' : '🌙';
+        text.innerText = isDark ? 'Mode Terang' : 'Mode Gelap';
+    }
 }
 
-// Cek tema saat load
+// Load tema saat pertama kali buka
 if (localStorage.getItem('v_offline_theme') === 'dark') {
     document.body.classList.add('dark-mode');
     updateThemeUI(true);
@@ -34,14 +39,14 @@ function playBeep() {
         gain.gain.exponentialRampToValueAtTime(0.00001, context.currentTime + 0.5);
         osc.stop(context.currentTime + 0.5);
     } catch (e) {
-        console.log("Audio Error:", e);
+        console.warn("Audio Context diblokir browser sebelum ada interaksi.");
     }
 }
 
 // --- AUTENTIKASI ---
 function checkAuth() {
-    const pin = document.getElementById('pin-input').value;
-    if (pin === "van1123") {
+    const pinInput = document.getElementById('pin-input');
+    if (pinInput.value === "van1123") {
         localStorage.setItem('v_offline_auth', 'true');
         startApp();
     } else {
@@ -64,35 +69,57 @@ function startApp() {
     }
 }
 
-// --- LOGIKA SCANNER ---
+// --- LOGIKA SCANNER DENGAN KONFIRMASI ---
 function initQR() {
-    const scanner = new Html5QrcodeScanner("reader", { fps: 15, qrbox: 250 });
-    scanner.render((text) => {
+    // Inisialisasi library
+    const scanner = new Html5QrcodeScanner("reader", { 
+        fps: 20, 
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0 
+    });
+
+    scanner.render((decodedText) => {
+        // Bunyi Beep saat terdeteksi
         playBeep();
-        
-        // Asumsi data QR: Nama,Alamat,Jumlah
-        const parts = text.split(",");
-        const n = parts[0] ? parts[0].trim() : "Tamu Umum";
-        const a = parts[1] ? parts[1].trim() : "-";
-        const j = parts[2] ? parts[2].trim() : "1";
-        
+
+        // Parsing Data (Format: Nama, Alamat, Jumlah)
+        const parts = decodedText.split(",");
+        const nama = parts[0] ? parts[0].trim() : "Tamu Umum";
+        const alamat = parts[1] ? parts[1].trim() : "-";
+        const jumlah = parts[2] ? parts[2].trim() : "1";
+
+        // Ambil Waktu Sekarang
         const now = new Date();
-        const t = now.getDate() + "/" + (now.getMonth() + 1) + "/" + now.getFullYear() + " " + 
-                  now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0');
+        const waktu = now.getDate() + "/" + (now.getMonth() + 1) + "/" + now.getFullYear() + " " + 
+                      now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0');
 
-        document.getElementById('disp-nama').innerText = n;
-        document.getElementById('disp-asal').innerText = a;
-        document.getElementById('disp-jumlah').innerText = j;
+        // Tampilkan Preview di UI
+        document.getElementById('disp-nama').innerText = nama;
+        document.getElementById('disp-asal').innerText = alamat;
+        document.getElementById('disp-jumlah').innerText = jumlah;
 
-        saveData(n, a, j, t);
+        // Jendela Konfirmasi (Menjedakan proses input selanjutnya)
+        setTimeout(() => {
+            const yakin = confirm(`Konfirmasi Data Tamu:\n\nNama: ${nama}\nAsal: ${alamat}\nJumlah: ${jumlah}\n\nSimpan ke laporan?`);
+            
+            if (yakin) {
+                saveData(nama, alamat, jumlah, waktu);
+            } else {
+                console.log("Scan dibatalkan oleh pengguna.");
+            }
+        }, 150);
     });
 }
 
 function saveData(n, a, j, t) {
+    // Masukkan ke array di posisi paling atas
     logs.unshift({ n, a, j, t });
     localStorage.setItem('v_offline_logs', JSON.stringify(logs));
+    
+    // Update daftar riwayat di layar
     renderHistory();
     
+    // Notifikasi visual singkat
     const status = document.getElementById('scan-status');
     status.innerText = "BERHASIL DISIMPAN";
     status.style.color = "var(--success)";
@@ -103,13 +130,14 @@ function saveData(n, a, j, t) {
     }, 2000);
 }
 
-// --- RIWAYAT & LAPORAN ---
+// --- TAMPILAN RIWAYAT ---
 function renderHistory() {
     const list = document.getElementById('history-list');
     if (logs.length === 0) {
-        list.innerHTML = '<p style="text-align:center; color:var(--text-muted); font-size:0.8rem; margin-top:15px;">Belum ada riwayat.</p>';
+        list.innerHTML = '<p style="text-align:center; color:var(--text-muted); font-size:0.8rem; margin-top:15px;">Belum ada riwayat scan.</p>';
         return;
     }
+
     list.innerHTML = logs.map(item => `
         <div class="history-item">
             <div class="history-info">
@@ -121,33 +149,47 @@ function renderHistory() {
     `).join('');
 }
 
+// --- RESET DATA ---
 function hapusRiwayat() {
-    if (confirm("Hapus semua riwayat lokal?")) {
+    if (confirm("PERINGATAN: Hapus semua riwayat scan secara permanen?")) {
         logs = [];
         localStorage.removeItem('v_offline_logs');
         renderHistory();
+        
+        // Reset tampilan display
+        document.getElementById('disp-nama').innerText = "-";
+        document.getElementById('disp-asal').innerText = "-";
+        document.getElementById('disp-jumlah').innerText = "-";
     }
 }
 
+// --- EKSPOR EXCEL (CSV) ---
 function downloadExcel() {
-    if (logs.length === 0) return alert("Data kosong!");
+    if (logs.length === 0) return alert("Tidak ada data untuk diunduh!");
     
-    let csv = "sep=,\nNama Tamu,Alamat,Jumlah,Waktu Scan\n"; 
+    // Header CSV dengan instruksi separator untuk Excel
+    let csv = "sep=,\nNama Tamu,Alamat,Jumlah Orang,Waktu Scan\n"; 
+    
     logs.forEach(r => {
-        csv += `"${r.n.replace(/"/g, '""')}","${r.a.replace(/"/g, '""')}","${r.j}","${r.t}"\n`;
+        // Membersihkan karakter kutip agar tidak merusak format CSV
+        const cleanNama = r.n.replace(/"/g, '""');
+        const cleanAlamat = r.a.replace(/"/g, '""');
+        csv += `"${cleanNama}","${cleanAlamat}","${r.j}","${r.t}"\n`;
     });
     
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Laporan_Tamu.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const link = document.createElement('a');
+    
+    const dateStr = new Date().toLocaleDateString().replace(/\//g, '-');
+    link.href = url;
+    link.download = `Laporan_Tamu_${dateStr}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
-// Jalankan otomatis jika sudah pernah login
+// Cek status login saat halaman dimuat
 if (localStorage.getItem('v_offline_auth') === 'true') {
     startApp();
 }
