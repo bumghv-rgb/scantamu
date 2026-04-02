@@ -1,6 +1,7 @@
 // Database Lokal
 let logs = JSON.parse(localStorage.getItem('v_offline_logs')) || [];
-let html5QrCode; 
+let scanner; // Variabel global untuk kontrol scanner
+let isScanning = true; // Flag untuk mencegah double trigger
 
 // --- SISTEM TEMA ---
 function toggleTheme() {
@@ -13,19 +14,16 @@ function toggleTheme() {
 function updateThemeUI(isDark) {
     const icon = document.getElementById('theme-icon');
     const text = document.getElementById('theme-text');
-    if (icon && text) {
-        icon.innerText = isDark ? '☀️' : '🌙';
-        text.innerText = isDark ? 'Mode Terang' : 'Mode Gelap';
-    }
+    if (icon) icon.innerText = isDark ? '☀️' : '🌙';
+    if (text) text.innerText = isDark ? 'Mode Terang' : 'Mode Gelap';
 }
 
-// Load tema saat pertama kali buka
 if (localStorage.getItem('v_offline_theme') === 'dark') {
     document.body.classList.add('dark-mode');
     updateThemeUI(true);
 }
 
-// --- SISTEM SUARA (BEEP) ---
+// --- SISTEM SUARA ---
 function playBeep() {
     try {
         const context = new (window.AudioContext || window.webkitAudioContext)();
@@ -38,20 +36,15 @@ function playBeep() {
         osc.start();
         gain.gain.exponentialRampToValueAtTime(0.00001, context.currentTime + 0.5);
         osc.stop(context.currentTime + 0.5);
-    } catch (e) {
-        console.warn("Audio Context diblokir browser sebelum ada interaksi.");
-    }
+    } catch (e) { console.warn("Audio blocked"); }
 }
 
 // --- AUTENTIKASI ---
 function checkAuth() {
-    const pinInput = document.getElementById('pin-input');
-    if (pinInput.value === "van1123") {
+    if (document.getElementById('pin-input').value === "van1123") {
         localStorage.setItem('v_offline_auth', 'true');
         startApp();
-    } else {
-        alert("PIN Salah!");
-    }
+    } else { alert("PIN Salah!"); }
 }
 
 function logout() {
@@ -69,127 +62,108 @@ function startApp() {
     }
 }
 
-// --- LOGIKA SCANNER DENGAN KONFIRMASI ---
+// --- LOGIKA SCANNER (FIX ANTI-MENUMPUK) ---
 function initQR() {
-    // Inisialisasi library
-    const scanner = new Html5QrcodeScanner("reader", { 
-        fps: 20, 
-        qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0 
+    scanner = new Html5QrcodeScanner("reader", { 
+        fps: 10, 
+        qrbox: 250,
+        rememberLastUsedCamera: true
     });
 
     scanner.render((decodedText) => {
-        // Bunyi Beep saat terdeteksi
+        // Jika sedang dalam proses konfirmasi, abaikan scan baru
+        if (!isScanning) return;
+
+        isScanning = false; // Kunci status scanning
         playBeep();
 
-        // Parsing Data (Format: Nama, Alamat, Jumlah)
+        // 1. PAUSE Scanner (Ini kuncinya agar kamera berhenti membaca)
+        scanner.pause();
+
+        // 2. Parsing Data
         const parts = decodedText.split(",");
-        const nama = parts[0] ? parts[0].trim() : "Tamu Umum";
-        const alamat = parts[1] ? parts[1].trim() : "-";
-        const jumlah = parts[2] ? parts[2].trim() : "1";
-
-        // Ambil Waktu Sekarang
+        const n = parts[0] ? parts[0].trim() : "Tamu Umum";
+        const a = parts[1] ? parts[1].trim() : "-";
+        const j = parts[2] ? parts[2].trim() : "1";
+        
         const now = new Date();
-        const waktu = now.getDate() + "/" + (now.getMonth() + 1) + "/" + now.getFullYear() + " " + 
-                      now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0');
+        const t = now.getDate() + "/" + (now.getMonth() + 1) + "/" + now.getFullYear() + " " + 
+                  now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0');
 
-        // Tampilkan Preview di UI
-        document.getElementById('disp-nama').innerText = nama;
-        document.getElementById('disp-asal').innerText = alamat;
-        document.getElementById('disp-jumlah').innerText = jumlah;
+        // Update UI Preview
+        document.getElementById('disp-nama').innerText = n;
+        document.getElementById('disp-asal').innerText = a;
+        document.getElementById('disp-jumlah').innerText = j;
 
-        // Jendela Konfirmasi (Menjedakan proses input selanjutnya)
+        // 3. Jendela Konfirmasi
+        // Gunakan setTimeout agar browser sempat update teks Nama/Alamat di layar
         setTimeout(() => {
-            const yakin = confirm(`Konfirmasi Data Tamu:\n\nNama: ${nama}\nAsal: ${alamat}\nJumlah: ${jumlah}\n\nSimpan ke laporan?`);
+            const yakin = confirm(`Simpan data tamu?\n\nNama: ${n}\nAsal: ${a}\nJumlah: ${j}`);
             
             if (yakin) {
-                saveData(nama, alamat, jumlah, waktu);
-            } else {
-                console.log("Scan dibatalkan oleh pengguna.");
+                saveData(n, a, j, t);
             }
-        }, 150);
+
+            // 4. RESUME Scanner (Nyalakan kembali kamera setelah klik OK/Cancel)
+            // Kasih delay 1 detik agar pengguna sempat menjauhkan QR dari kamera
+            setTimeout(() => {
+                scanner.resume();
+                isScanning = true;
+                document.getElementById('scan-status').innerText = "SIAP PINDAI";
+                document.getElementById('scan-status').style.color = "var(--primary)";
+            }, 1000);
+
+        }, 100);
     });
 }
 
 function saveData(n, a, j, t) {
-    // Masukkan ke array di posisi paling atas
     logs.unshift({ n, a, j, t });
     localStorage.setItem('v_offline_logs', JSON.stringify(logs));
-    
-    // Update daftar riwayat di layar
     renderHistory();
     
-    // Notifikasi visual singkat
     const status = document.getElementById('scan-status');
     status.innerText = "BERHASIL DISIMPAN";
     status.style.color = "var(--success)";
-    
-    setTimeout(() => {
-        status.innerText = "SIAP PINDAI";
-        status.style.color = "var(--primary)";
-    }, 2000);
 }
 
-// --- TAMPILAN RIWAYAT ---
+// --- RIWAYAT & LAPORAN ---
 function renderHistory() {
     const list = document.getElementById('history-list');
     if (logs.length === 0) {
-        list.innerHTML = '<p style="text-align:center; color:var(--text-muted); font-size:0.8rem; margin-top:15px;">Belum ada riwayat scan.</p>';
+        list.innerHTML = '<p style="text-align:center; color:var(--text-muted); font-size:0.8rem; margin-top:15px;">Belum ada riwayat.</p>';
         return;
     }
-
     list.innerHTML = logs.map(item => `
         <div class="history-item">
-            <div class="history-info">
-                <b>${item.n}</b>
-                <small>${item.t}</small>
-            </div>
+            <div class="history-info"><b>${item.n}</b><small>${item.t}</small></div>
             <div style="font-weight:800; color:var(--primary)">${item.j}</div>
         </div>
     `).join('');
 }
 
-// --- RESET DATA ---
 function hapusRiwayat() {
-    if (confirm("PERINGATAN: Hapus semua riwayat scan secara permanen?")) {
+    if (confirm("Hapus semua riwayat?")) {
         logs = [];
         localStorage.removeItem('v_offline_logs');
         renderHistory();
-        
-        // Reset tampilan display
-        document.getElementById('disp-nama').innerText = "-";
-        document.getElementById('disp-asal').innerText = "-";
-        document.getElementById('disp-jumlah').innerText = "-";
     }
 }
 
-// --- EKSPOR EXCEL (CSV) ---
 function downloadExcel() {
-    if (logs.length === 0) return alert("Tidak ada data untuk diunduh!");
-    
-    // Header CSV dengan instruksi separator untuk Excel
-    let csv = "sep=,\nNama Tamu,Alamat,Jumlah Orang,Waktu Scan\n"; 
-    
+    if (logs.length === 0) return alert("Data kosong!");
+    let csv = "sep=,\nNama Tamu,Alamat,Jumlah,Waktu Scan\n"; 
     logs.forEach(r => {
-        // Membersihkan karakter kutip agar tidak merusak format CSV
-        const cleanNama = r.n.replace(/"/g, '""');
-        const cleanAlamat = r.a.replace(/"/g, '""');
-        csv += `"${cleanNama}","${cleanAlamat}","${r.j}","${r.t}"\n`;
+        csv += `"${r.n.replace(/"/g, '""')}","${r.a.replace(/"/g, '""')}","${r.j}","${r.t}"\n`;
     });
-    
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    
-    const dateStr = new Date().toLocaleDateString().replace(/\//g, '-');
-    link.href = url;
-    link.download = `Laporan_Tamu_${dateStr}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Laporan_Tamu.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 }
 
-// Cek status login saat halaman dimuat
-if (localStorage.getItem('v_offline_auth') === 'true') {
-    startApp();
-}
+if (localStorage.getItem('v_offline_auth') === 'true') startApp();
