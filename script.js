@@ -3,6 +3,7 @@ const firebaseConfig = {
       apiKey: "AIzaSyDsGqBbJ5QwSPXm45tQE1ZMy8WvSHTqQBM",
       authDomain: "daftar-tamu-undangan-72ab1.firebaseapp.com",
       projectId: "daftar-tamu-undangan-72ab1",
+      databaseURL:"https://console.firebase.google.com/u/0/project/daftar-tamu-undangan-72ab1/database/daftar-tamu-undangan-72ab1-default-rtdb/data/~2F",
       storageBucket: "daftar-tamu-undangan-72ab1.firebasestorage.app",
       messagingSenderId: "26307099392",
       appId: "1:26307099392:web:77351d21affb70e88f51e5",
