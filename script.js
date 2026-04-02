@@ -1,81 +1,123 @@
-// 1. PASTE CONFIG FIREBASE ANDA DI SINI
+// 1. KONFIGURASI FIREBASE (Ganti dengan milik Anda)
 const firebaseConfig = {
-      apiKey: "AIzaSyDsGqBbJ5QwSPXm45tQE1ZMy8WvSHTqQBM",
-      authDomain: "daftar-tamu-undangan-72ab1.firebaseapp.com",
-      projectId: "daftar-tamu-undangan-72ab1",
-      databaseURL:"https://console.firebase.google.com/u/0/project/daftar-tamu-undangan-72ab1/database/daftar-tamu-undangan-72ab1-default-rtdb/data/~2F",
-      storageBucket: "daftar-tamu-undangan-72ab1.firebasestorage.app",
-      messagingSenderId: "26307099392",
-      appId: "1:26307099392:web:77351d21affb70e88f51e5",
-      measurementId: "G-B0G7GJBTSJ"
+    apiKey: "AIzaSyDsGqBbJ5QwSPXm45tQE1ZMy8WvSHTqQBM", 
+    authDomain: "daftar-tamu-undangan-72ab1.firebaseapp.com",
+    databaseURL: "https://console.firebase.google.com/u/0/project/daftar-tamu-undangan-72ab1/database/daftar-tamu-undangan-72ab1-default-rtdb/data/~2F",
+    projectId: "daftar-tamu-undangan-72ab1",
+    storageBucket: "daftar-tamu-undangan-72ab1.firebasestorage.app",
+    messagingSenderId: "26307099392",
+    appId: "1:26307099392:web:77351d21affb70e88f51e5"
 };
 
-// 2. Inisialisasi Firebase
+// 2. INISIALISASI VARIABEL GLOBAL (Wajib di atas agar tidak error)
 firebase.initializeApp(firebaseConfig);
-const db = firebase.database().ref("tamu"); // Nama tabel/folder di database
+const db = firebase.database().ref("tamu");
 
 let logs = [];
-let isCooldown = false;
+let isCooldown = false; 
+let html5QrScanner = null;
 
 // --- SISTEM TEMA ---
 function toggleTheme() {
     document.body.classList.toggle('dark-mode');
-    localStorage.setItem('v_theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+    const isDark = document.body.classList.contains('dark-mode');
+    localStorage.setItem('v_theme', isDark ? 'dark' : 'light');
 }
-if(localStorage.getItem('v_theme') === 'dark') document.body.classList.add('dark-mode');
 
-// --- SYNC DATA REALTIME ---
-// Fungsi ini otomatis jalan setiap ada data baru masuk ke cloud
+if (localStorage.getItem('v_theme') === 'dark') {
+    document.body.classList.add('dark-mode');
+}
+
+// --- AUTENTIKASI ---
+function checkAuth() {
+    const pin = document.getElementById('pin-input').value;
+    if (pin === "van1123") {
+        localStorage.setItem('v_auth', 'true');
+        startApp();
+    } else { 
+        alert("PIN Salah!"); 
+    }
+}
+
+function logout() {
+    localStorage.removeItem('v_auth');
+    location.reload();
+}
+
+function startApp() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('main-app').style.display = 'flex';
+    renderHistory(); // Render data awal
+    initQR();        // Jalankan Kamera
+}
+
+// --- SYNC DATA CLOUD (REALTIME) ---
 db.on('value', (snapshot) => {
     const data = snapshot.val();
     if (data) {
-        // Mengubah objek menjadi array dan membalik urutan (terbaru di atas)
-        logs = Object.keys(data).map(key => data[key]).reverse();
+        // Mengubah objek Firebase ke Array dan diurutkan dari yang terbaru
+        logs = Object.values(data).reverse();
     } else {
         logs = [];
     }
     renderHistory();
 });
 
-// --- SCANNER ---
+// --- LOGIKA SCANNER ---
 function initQR() {
-    const scanner = new Html5QrcodeScanner("reader", { fps: 20, qrbox: 250 });
-    scanner.render((text) => {
+    // Menghindari inisialisasi ganda
+    if (html5QrScanner) {
+        html5QrScanner.clear();
+    }
+
+    html5QrScanner = new Html5QrcodeScanner("reader", { 
+        fps: 15, 
+        qrbox: 250,
+        rememberLastUsedCamera: true
+    });
+    
+    html5QrScanner.render((decodedText) => {
+        // Proteksi Cooldown (Anti-Duplicate)
         if (isCooldown) return;
         isCooldown = true;
-        
-        // Suara Beep
+
+        // Bunyi Beep Sederhana
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = audioCtx.createOscillator();
         osc.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        osc.start(); 
+        osc.stop(audioCtx.currentTime + 0.1);
 
-        const parts = text.split(",");
+        // Parsing Data QR (Format: Nama, Asal, Jumlah)
+        const parts = decodedText.split(",");
         const n = parts[0] ? parts[0].trim() : "Tamu Umum";
         const a = parts[1] ? parts[1].trim() : "-";
         const j = parts[2] ? parts[2].trim() : "1";
         
         const now = new Date();
-        const t = now.toLocaleDateString('id-ID') + " " + now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0');
+        const t = now.toLocaleDateString('id-ID') + " " + 
+                  now.getHours().toString().padStart(2, '0') + ":" + 
+                  now.getMinutes().toString().padStart(2, '0');
 
-        // Tampilkan Preview
+        // Update Tampilan Preview
         document.getElementById('disp-nama').innerText = n;
         document.getElementById('disp-asal').innerText = a;
         document.getElementById('disp-jumlah').innerText = j;
 
-        // SIMPAN KE FIREBASE
-        db.push({ n, a, j, t, created_at: Date.now() });
+        // KIRIM KE FIREBASE
+        db.push({ n, a, j, t, timestamp: Date.now() });
 
-        // Cooldown 3 detik agar tidak double scan
+        // Hitung Mundur Cooldown 3 Detik
         const status = document.getElementById('scan-status');
         let cd = 3;
+        status.style.color = "var(--danger)";
+        
         const timer = setInterval(() => {
             cd--;
             status.innerText = `TUNGGU (${cd}s)...`;
-            status.style.color = "var(--danger)";
             if (cd <= 0) {
                 clearInterval(timer);
-                isCooldown = false;
+                isCooldown = false; // Buka kunci scanner kembali
                 status.innerText = "SIAP PINDAI";
                 status.style.color = "var(--primary)";
             }
@@ -83,20 +125,28 @@ function initQR() {
     });
 }
 
+// --- TAMPILAN RIWAYAT ---
 function renderHistory() {
     const list = document.getElementById('history-list');
+    if (!list) return;
+
     if (logs.length === 0) {
-        list.innerHTML = '<p style="text-align:center; color:var(--text-muted); font-size:0.8rem; margin-top:15px;">Belum ada riwayat.</p>';
+        list.innerHTML = '<p style="text-align:center; color:gray; font-size:0.8rem; margin-top:20px;">Belum ada riwayat scan.</p>';
         return;
     }
+
     list.innerHTML = logs.map(item => `
         <div class="history-item">
-            <div class="history-info"><b>${item.n}</b><small>${item.t}</small></div>
+            <div class="history-info">
+                <b>${item.n}</b>
+                <small>${item.t}</small>
+            </div>
             <div style="font-weight:800; color:var(--primary)">${item.j}</div>
         </div>
     `).join('');
 }
 
+// --- FITUR LAPORAN & RESET ---
 function downloadExcel() {
     if (logs.length === 0) return alert("Data kosong!");
     let csv = "sep=,\nNama Tamu,Alamat,Jumlah,Waktu Scan\n"; 
@@ -112,25 +162,17 @@ function downloadExcel() {
 }
 
 function hapusRiwayat() {
-    if (confirm("Hapus SEMUA riwayat di semua perangkat secara permanen?")) {
+    if (confirm("Hapus semua riwayat di Cloud? Semua perangkat akan kehilangan data ini secara permanen.")) {
         db.remove();
+        // Reset display
+        document.getElementById('disp-nama').innerText = "-";
+        document.getElementById('disp-asal').innerText = "-";
+        document.getElementById('disp-jumlah').innerText = "-";
     }
 }
 
-// Auth
-function checkAuth() {
-    if (document.getElementById('pin-input').value === "van1123") {
-        localStorage.setItem('v_auth', 'true');
-        startApp();
-    } else { alert("PIN Salah!"); }
+// Jalankan otomatis jika sesi masih aktif
+if (localStorage.getItem('v_auth') === 'true') {
+    // Tunggu DOM selesai load agar tidak error
+    window.onload = () => startApp();
 }
-
-function startApp() {
-    if (localStorage.getItem('v_auth') === 'true') {
-        document.getElementById('login-screen').style.display = 'none';
-        document.getElementById('main-app').style.display = 'flex';
-        document.getElementById('logout-btn').style.display = 'flex';
-        initQR();
-    }
-}
-if (localStorage.getItem('v_auth') === 'true') startApp();
