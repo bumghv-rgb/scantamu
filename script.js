@@ -1,7 +1,7 @@
 // Database Lokal
 let logs = JSON.parse(localStorage.getItem('v_offline_logs')) || [];
-let scanner; // Variabel global untuk kontrol scanner
-let isScanning = true; // Flag untuk mencegah double trigger
+let scanner; 
+let isCooldown = false; // Kunci untuk mencegah scan bertubi-tubi
 
 // --- SISTEM TEMA ---
 function toggleTheme() {
@@ -62,25 +62,23 @@ function startApp() {
     }
 }
 
-// --- LOGIKA SCANNER (FIX ANTI-MENUMPUK) ---
+// --- LOGIKA SCANNER (TANPA KONFIRMASI) ---
 function initQR() {
     scanner = new Html5QrcodeScanner("reader", { 
-        fps: 10, 
+        fps: 20, 
         qrbox: 250,
         rememberLastUsedCamera: true
     });
 
     scanner.render((decodedText) => {
-        // Jika sedang dalam proses konfirmasi, abaikan scan baru
-        if (!isScanning) return;
+        // Jika masih dalam masa tunggu (cooldown), abaikan scan
+        if (isCooldown) return;
 
-        isScanning = false; // Kunci status scanning
+        // Aktifkan Cooldown (Kunci sistem selama 3 detik)
+        isCooldown = true;
         playBeep();
 
-        // 1. PAUSE Scanner (Ini kuncinya agar kamera berhenti membaca)
-        scanner.pause();
-
-        // 2. Parsing Data
+        // 1. Parsing Data
         const parts = decodedText.split(",");
         const n = parts[0] ? parts[0].trim() : "Tamu Umum";
         const a = parts[1] ? parts[1].trim() : "-";
@@ -90,30 +88,30 @@ function initQR() {
         const t = now.getDate() + "/" + (now.getMonth() + 1) + "/" + now.getFullYear() + " " + 
                   now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0');
 
-        // Update UI Preview
+        // 2. Tampilkan di UI
         document.getElementById('disp-nama').innerText = n;
         document.getElementById('disp-asal').innerText = a;
         document.getElementById('disp-jumlah').innerText = j;
 
-        // 3. Jendela Konfirmasi
-        // Gunakan setTimeout agar browser sempat update teks Nama/Alamat di layar
-        setTimeout(() => {
-            const yakin = confirm(`Simpan data tamu?\n\nNama: ${n}\nAsal: ${a}\nJumlah: ${j}`);
+        // 3. Simpan Langsung
+        saveData(n, a, j, t);
+
+        // 4. Hitung Mundur Cooldown (Status Visual)
+        const status = document.getElementById('scan-status');
+        let countdown = 3;
+        
+        const timer = setInterval(() => {
+            countdown--;
+            status.innerText = `TUNGGU (${countdown}s)...`;
+            status.style.color = "var(--danger)";
             
-            if (yakin) {
-                saveData(n, a, j, t);
+            if (countdown <= 0) {
+                clearInterval(timer);
+                isCooldown = false; // Buka kunci scan
+                status.innerText = "SIAP PINDAI";
+                status.style.color = "var(--primary)";
             }
-
-            // 4. RESUME Scanner (Nyalakan kembali kamera setelah klik OK/Cancel)
-            // Kasih delay 1 detik agar pengguna sempat menjauhkan QR dari kamera
-            setTimeout(() => {
-                scanner.resume();
-                isScanning = true;
-                document.getElementById('scan-status').innerText = "SIAP PINDAI";
-                document.getElementById('scan-status').style.color = "var(--primary)";
-            }, 1000);
-
-        }, 100);
+        }, 1000);
     });
 }
 
@@ -121,10 +119,6 @@ function saveData(n, a, j, t) {
     logs.unshift({ n, a, j, t });
     localStorage.setItem('v_offline_logs', JSON.stringify(logs));
     renderHistory();
-    
-    const status = document.getElementById('scan-status');
-    status.innerText = "BERHASIL DISIMPAN";
-    status.style.color = "var(--success)";
 }
 
 // --- RIWAYAT & LAPORAN ---
@@ -147,6 +141,9 @@ function hapusRiwayat() {
         logs = [];
         localStorage.removeItem('v_offline_logs');
         renderHistory();
+        document.getElementById('disp-nama').innerText = "-";
+        document.getElementById('disp-asal').innerText = "-";
+        document.getElementById('disp-jumlah').innerText = "-";
     }
 }
 
