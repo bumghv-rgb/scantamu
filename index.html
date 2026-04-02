@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GuestScan Offline Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body id="root-body">
+
+    <div class="top-nav">
+        <button class="nav-btn" onclick="toggleTheme()">
+            <span id="theme-icon">🌙</span> <span id="theme-text">Mode Gelap</span>
+        </button>
+        <button id="logout-btn" class="nav-btn" style="display:none; color:var(--danger);" onclick="logout()">
+            <span>Keluar</span> 🚪
+        </button>
+    </div>
+
+    <div id="login-screen">
+        <div class="login-box">
+            <h2 style="margin:0 0 10px 0; font-weight:800; font-size:1.8rem; letter-spacing:-1px;">Scan <span style="color:var(--primary)">Tamu</span></h2>
+            <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:25px;">Registrasi Tamu</p>
+            <input type="password" id="pin-input" placeholder="••••">
+            <button onclick="checkAuth()" class="btn btn-excel" style="background:var(--primary);">Masuk Sistem</button>
+        </div>
+    </div>
+
+    <div class="app-container" id="main-app">
+        <div style="text-align: center;">
+            <h2 style="margin:0; font-weight:800; letter-spacing:-1px;">Registrasi <span style="color:var(--primary)">Tamu</span></h2>
+        </div>
+
+        <div class="card">
+            <div id="scan-status" class="status-badge">SIAP PINDAI</div>
+            <div id="reader"></div>
+            
+            <div class="data-grid">
+                <div class="data-item">
+                    <span class="data-label">Nama Lengkap</span>
+                    <span id="disp-nama" class="data-val">-</span>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <div class="data-item">
+                        <span class="data-label">Asal Alamat</span>
+                        <span id="disp-asal" class="data-val">-</span>
+                    </div>
+                    <div class="data-item">
+                        <span class="data-label">Jumlah Orang</span>
+                        <span id="disp-jumlah" class="data-val">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin:0 0 15px 0; font-size:1.1rem; font-weight:800;">Manajemen Laporan</h3>
+            <button class="btn btn-excel" onclick="downloadExcel()">📥 Download Laporan Excel (CSV)</button>
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <button class="btn btn-clear" onclick="hapusRiwayat()">🗑️ Reset Riwayat</button>
+                <button class="btn" style="flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text-muted);" onclick="window.print()">🖨️ Cetak</button>
+            </div>
+            <div id="history-list" class="history-list"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
