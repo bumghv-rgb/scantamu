@@ -1,169 +1,125 @@
-// 1. KONFIGURASI FIREBASE (Ganti dengan milik Anda)
-const firebaseConfig = {
-    apiKey: "AIzaSyDsGqBbJ5QwSPXm45tQE1ZMy8WvSHTqQBM", 
-    authDomain: "daftar-tamu-undangan-72ab1.firebaseapp.com",
-    databaseURL: "https://console.firebase.google.com/u/0/project/daftar-tamu-undangan-72ab1/database/daftar-tamu-undangan-72ab1-default-rtdb/data/~2F",
-    projectId: "daftar-tamu-undangan-72ab1",
-    storageBucket: "daftar-tamu-undangan-72ab1.firebasestorage.app",
-    messagingSenderId: "26307099392",
-    appId: "1:26307099392:web:77351d21affb70e88f51e5"
-};
+// Database & Inisialisasi
+let db = JSON.parse(localStorage.getItem('wedding_v6_data')) || [];
+const scanner = new Html5Qrcode("reader");
+const sound = new Audio('https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3'); 
+let isLocked = false;
 
-// 2. INISIALISASI VARIABEL (Wajib di atas)
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database().ref("tamu");
+// Fungsi Ganti Tema
+function setTheme(t) {
+    document.body.className = 'theme-' + t;
+    localStorage.setItem('wedding_theme', t);
+}
 
-let logs = [];
-let isCooldown = false;
-let html5QrScanner = null;
+// Load Tema yang Tersimpan
+const savedTheme = localStorage.getItem('wedding_theme');
+if(savedTheme) setTheme(savedTheme);
 
-// --- FUNGSI LOGIN ---
-function checkAuth() {
-    const pinInput = document.getElementById('pin-input');
-    if (pinInput.value === "van1123") {
-        localStorage.setItem('v_auth', 'true');
-        location.reload(); // Refresh untuk memulai aplikasi secara bersih
+// Fungsi Utama Scan
+function processData(text) {
+    if (isLocked) return;
+    isLocked = true;
+
+    sound.play().catch(() => {});
+    
+    // Split data QR: nama, alamat, jumlah, doa
+    const p = text.split(',');
+    const entry = {
+        id: Date.now(),
+        "Waktu Scan": new Date().toLocaleTimeString('id-ID'),
+        "Nama Tamu": p[0] ? p[0].trim() : "Tamu Undangan",
+        "Alamat": p[1] ? p[1].trim() : "-",
+        "Jumlah Orang": p[2] ? p[2].trim() : "1",
+        "Ucapan & Doa": p[3] ? p[3].trim() : "Terima kasih sudah hadir!"
+    };
+
+    // Tampilkan Modal Ucapan
+    document.getElementById('modal-nama').innerText = entry["Nama Tamu"];
+    document.getElementById('modal-doa').innerText = `"${entry["Ucapan & Doa"]}"`;
+    document.getElementById('lock-screen').style.display = 'flex';
+
+    // Cek Duplikat
+    if (!db.some(t => t["Nama Tamu"] === entry["Nama Tamu"] && t["Alamat"] === entry["Alamat"])) {
+        db.unshift(entry);
+        saveData();
+        showNotif("Berhasil dicatat ✨");
     } else {
-        alert("PIN Salah! Silakan coba lagi.");
+        showNotif("Data sudah ada ⚠️");
     }
-}
 
-function logout() {
-    localStorage.removeItem('v_auth');
-    location.reload();
-}
-
-// --- FUNGSI UTAMA APLIKASI ---
-function startApp() {
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('main-app').style.display = 'flex';
-    
-    // Jalankan Sinkronisasi Data Cloud
-    syncData();
-    
-    // Jalankan Kamera (dengan sedikit jeda agar elemen muncul dulu)
+    // Timer Jeda
     setTimeout(() => {
-        initQR();
-    }, 500);
+        isLocked = false;
+        document.getElementById('lock-screen').style.display = 'none';
+    }, 3500);
 }
 
-// --- LOGIKA SYNC DATA (REALTIME) ---
-function syncData() {
-    db.on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            // Ubah objek ke array dan balik urutan (terbaru di atas)
-            logs = Object.keys(data).map(key => data[key]).reverse();
-        } else {
-            logs = [];
-        }
-        renderHistory();
-    });
-}
+// Render List ke UI
+function render() {
+    const container = document.getElementById('guest-list-container');
+    document.getElementById('count-tamu').innerText = `${db.length} Hadir`;
 
-// --- LOGIKA SCANNER ---
-function initQR() {
-    const readerDiv = document.getElementById('reader');
-    if (!readerDiv) return;
-
-    // Jika sudah ada scanner yang berjalan, bersihkan dulu
-    if (html5QrScanner) {
-        html5QrScanner.clear();
-    }
-
-    html5QrScanner = new Html5QrcodeScanner("reader", { 
-        fps: 10, 
-        qrbox: 250,
-        rememberLastUsedCamera: true 
-    });
-    
-    html5QrScanner.render((decodedText) => {
-        if (isCooldown) return;
-        isCooldown = true;
-
-        // Parsing Data (Format: Nama, Asal, Jumlah)
-        const parts = decodedText.split(",");
-        const n = parts[0] ? parts[0].trim() : "Tamu Umum";
-        const a = parts[1] ? parts[1].trim() : "-";
-        const j = parts[2] ? parts[2].trim() : "1";
-        
-        const now = new Date();
-        const t = now.toLocaleDateString('id-ID') + " " + 
-                  now.getHours().toString().padStart(2, '0') + ":" + 
-                  now.getMinutes().toString().padStart(2, '0');
-
-        // Tampilkan ke layar preview
-        document.getElementById('disp-nama').innerText = n;
-        document.getElementById('disp-asal').innerText = a;
-        document.getElementById('disp-jumlah').innerText = j;
-
-        // SIMPAN KE FIREBASE
-        db.push({ n, a, j, t, timestamp: Date.now() });
-
-        // Cooldown 3 detik
-        const status = document.getElementById('scan-status');
-        let cd = 3;
-        const timer = setInterval(() => {
-            cd--;
-            status.innerText = `TUNGGU (${cd}s)...`;
-            if (cd <= 0) {
-                clearInterval(timer);
-                isCooldown = false;
-                status.innerText = "SIAP PINDAI";
-            }
-        }, 1000);
-    });
-}
-
-// --- TAMPILAN RIWAYAT ---
-function renderHistory() {
-    const list = document.getElementById('history-list');
-    if (!list) return;
-
-    if (logs.length === 0) {
-        list.innerHTML = '<p style="text-align:center; color:gray; font-size:0.8rem; margin-top:15px;">Belum ada data di cloud.</p>';
-        return;
-    }
-
-    list.innerHTML = logs.map(item => `
-        <div class="history-item">
-            <div class="history-info">
-                <b>${item.n}</b>
-                <small>${item.t}</small>
+    container.innerHTML = db.map(t => `
+        <div class="guest-item">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div class="guest-info">
+                    <h4>${t["Nama Tamu"]}</h4>
+                    <p>📍 ${t["Alamat"]} • ⌚ ${t["Waktu Scan"]}</p>
+                </div>
+                <button class="delete-btn" onclick="deleteEntry(${t.id})">✕</button>
             </div>
-            <div style="font-weight:800; color:#2563eb">${item.j}</div>
+            <div class="guest-footer">
+                <div class="guest-doa">"${t["Ucapan & Doa"]}"</div>
+                <div class="badge" style="background:var(--card)">${t["Jumlah Orang"]} Pax</div>
+            </div>
         </div>
     `).join('');
 }
 
-// --- FITUR TAMBAHAN ---
-function downloadExcel() {
-    if (logs.length === 0) return alert("Data masih kosong!");
-    let csv = "sep=,\nNama Tamu,Alamat,Jumlah,Waktu Scan\n"; 
-    logs.forEach(r => {
-        csv += `"${r.n}","${r.a}","${r.j}","${r.t}"\n`;
-    });
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Data_Tamu_GuestScan.csv`;
-    link.click();
-}
-
-function hapusRiwayat() {
-    if (confirm("Hapus semua riwayat di Cloud secara permanen?")) {
-        db.remove();
+// Hapus Satu Baris
+window.deleteEntry = function(id) {
+    if(confirm("Hapus tamu ini dari daftar?")) {
+        db = db.filter(t => t.id !== id);
+        saveData();
     }
 }
 
-function toggleTheme() {
-    document.body.classList.toggle('dark-mode');
+// Simpan ke LocalStorage
+function saveData() {
+    localStorage.setItem('wedding_v6_data', JSON.stringify(db));
+    render();
 }
 
-// --- JALANKAN SAAT HALAMAN DIBUKA ---
-window.onload = () => {
-    if (localStorage.getItem('v_auth') === 'true') {
-        startApp();
+// Download Excel
+window.downloadExcel = function() {
+    if (db.length === 0) return alert("Belum ada data untuk diekspor");
+    const cleanData = db.map(({id, ...rest}) => rest);
+    const ws = XLSX.utils.json_to_sheet(cleanData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Daftar Hadir");
+    XLSX.writeFile(wb, `Laporan_Wedding_Premium.xlsx`);
+}
+
+// Notifikasi Melayang
+function showNotif(msg) {
+    const n = document.getElementById('notif');
+    n.innerText = msg; n.style.display = 'block';
+    setTimeout(() => n.style.display = 'none', 3000);
+}
+
+// Reset Total
+window.clearAllData = function() {
+    if(confirm("PERINGATAN: Hapus seluruh database permanen?")) {
+        db = []; saveData();
     }
-};
+}
+
+// Menjalankan Scanner
+scanner.start({ facingMode: "environment" }, { fps: 20, qrbox: 280 }, processData);
+
+// Listener untuk File/Galeri
+document.getElementById('input-file').addEventListener('change', e => {
+    if (e.target.files[0]) scanner.scanFile(e.target.files[0], true).then(processData);
+});
+
+// Jalankan render pertama kali
+render();
