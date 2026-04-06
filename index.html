@@ -2,71 +2,56 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GuestScan Offline Pro</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wedding Premium v6</title>
+    
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Playfair+Display:ital,wght@0,700;1,600&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="style.css">
-   <script src="https://unpkg.com/html5-qrcode"></script>
-
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 </head>
-<body id="root-body">
+<body class="theme-rose">
 
-    <div class="top-nav">
-        <button class="nav-btn" onclick="toggleTheme()">
-            <span id="theme-icon">🌙</span> <span id="theme-text">Mode Gelap</span>
-        </button>
-        <button id="logout-btn" class="nav-btn" style="display:none; color:var(--danger);" onclick="logout()">
-            <span>Keluar</span> 🚪
-        </button>
-    </div>
+    <div id="notif"></div>
 
-    <div id="login-screen">
-        <div class="login-box">
-            <h2 style="margin:0 0 10px 0; font-weight:800; font-size:1.8rem; letter-spacing:-1px;">Scan <span style="color:var(--primary)">Tamu</span></h2>
-            <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:25px;">Registrasi Tamu</p>
-            <input type="password" id="pin-input" placeholder="••••">
-            <button onclick="checkAuth()" class="btn btn-excel" style="background:var(--primary);">Masuk Sistem</button>
-        </div>
-    </div>
-
-    <div class="app-container" id="main-app">
-        <div style="text-align: center;">
-            <h2 style="margin:0; font-weight:800; letter-spacing:-1px;">Registrasi <span style="color:var(--primary)">Tamu</span></h2>
-        </div>
-
-        <div class="card">
-            <div id="scan-status" class="status-badge">SIAP PINDAI</div>
-            <div id="reader" style="width: 100%; min-height: 250px;"></div>
-            
-            <div class="data-grid">
-                <div class="data-item">
-                    <span class="data-label">Nama Lengkap</span>
-                    <span id="disp-nama" class="data-val">-</span>
-                </div>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                    <div class="data-item">
-                        <span class="data-label">Asal Alamat</span>
-                        <span id="disp-asal" class="data-val">-</span>
-                    </div>
-                    <div class="data-item">
-                        <span class="data-label">Jumlah Orang</span>
-                        <span id="disp-jumlah" class="data-val">-</span>
-                    </div>
-                </div>
+    <div class="app-container">
+        <div class="header">
+            <h1>Wedding Guest</h1>
+            <div class="theme-selector">
+                <div class="dot-theme" style="background: #E5B4A2;" onclick="setTheme('rose')"></div>
+                <div class="dot-theme" style="background: #D4AF37;" onclick="setTheme('midnight')"></div>
+                <div class="dot-theme" style="background: #6B8E23;" onclick="setTheme('forest')"></div>
             </div>
         </div>
 
-        <div class="card">
-            <h3 style="margin:0 0 15px 0; font-size:1.1rem; font-weight:800;">Manajemen Laporan</h3>
-            <button class="btn btn-excel" onclick="downloadExcel()">📥 Download Laporan Excel (CSV)</button>
-            <div style="display:flex; gap:10px; margin-top:10px;">
-                <button class="btn btn-clear" onclick="hapusRiwayat()">🗑️ Reset Riwayat</button>
-                <button class="btn" style="flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text-muted);" onclick="window.print()">🖨️ Cetak</button>
+        <div class="scanner-wrapper">
+            <div id="reader"></div>
+            <div id="lock-screen">
+                <div style="font-size: 40px;">💌</div>
+                <h2 id="modal-nama" style="margin: 15px 0 5px 0; font-family: 'Playfair Display';"></h2>
+                <div id="modal-doa" class="doa-card"></div>
+                <small style="color: var(--primary); letter-spacing: 2px; font-weight: 600;">KEHADIRAN ANDA ADALAH KADO TERINDAH</small>
             </div>
-            <div id="history-list" class="history-list"></div>
+        </div>
+
+        <div class="action-grid">
+            <label for="input-file" class="btn btn-outline">📷 Galeri</label>
+            <button class="btn btn-main" onclick="downloadExcel()">📥 Export</button>
+            <input type="file" id="input-file" accept="image/*" style="display:none">
+        </div>
+
+        <div class="list-header">
+            <span style="font-weight: 600; font-size: 14px;">Daftar Tamu</span>
+            <span class="badge" id="count-tamu">0 Hadir</span>
+        </div>
+
+        <div id="guest-list-container" style="max-height: 350px; overflow-y: auto;">
+            </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <p onclick="clearAllData()" style="font-size: 10px; color: var(--text-light); text-decoration: underline; cursor: pointer; opacity: 0.5;">Hapus Seluruh Database</p>
         </div>
     </div>
 
