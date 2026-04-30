@@ -74,7 +74,7 @@ async function processData(text) {
     const entry = {
         nama: p[0] ? p[0].trim() : "Tamu Undangan",
         alamat: p[1] ? p[1].trim() : "-",
-        ucapan: p[3] ? p[3].trim() : "Terima kasih sudah hadir!"
+        ucapan: p[2] ? p[2].trim() : "Terima kasih sudah hadir!"
     };
 
     // CEK DUPLIKAT: Jika nama & alamat persis sudah ada di list
