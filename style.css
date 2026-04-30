@@ -4,14 +4,12 @@
     --primary: #E5B4A2;
     --text: #2D3436;
     --text-light: #636E72;
-    --accent: #E5B4A2;
 }
 
-/* Theme Variants */
-body.theme-midnight { --bg: #1A1A1A; --card: #2D2D2D; --primary: #D4AF37; --text: #FFFFFF; --text-light: #B2B2B2; --accent: #D4AF37; }
-body.theme-forest { --bg: #F0F4F1; --card: #FFFFFF; --primary: #6B8E23; --text: #2F3640; --text-light: #7F8C8D; --accent: #6B8E23; }
+body.theme-midnight { --bg: #1A1A1A; --card: #2D2D2D; --primary: #D4AF37; --text: #FFFFFF; --text-light: #B2B2B2; }
+body.theme-forest { --bg: #F0F4F1; --card: #FFFFFF; --primary: #6B8E23; --text: #2F3640; --text-light: #7F8C8D; }
 
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; transition: all 0.3s ease; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
 body { 
     font-family: 'Inter', sans-serif; 
@@ -27,69 +25,101 @@ body {
     padding: 35px 25px;
     border-radius: 35px;
     box-shadow: 0 30px 60px rgba(0,0,0,0.08);
-    position: relative;
     min-height: 90vh;
 }
 
-.header { text-align: center; margin-bottom: 30px; }
-.header h1 { font-family: 'Playfair Display', serif; font-size: 32px; margin: 0; color: var(--primary); }
+.header h1 { font-family: 'Playfair Display', serif; font-size: 32px; text-align: center; margin: 0; color: var(--primary); }
 
 .theme-selector { display: flex; justify-content: center; gap: 10px; margin-top: 15px; }
 .dot-theme { width: 18px; height: 18px; border-radius: 50%; cursor: pointer; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 
 .scanner-wrapper {
-    position: relative;
-    border-radius: 24px;
-    overflow: hidden;
-    aspect-ratio: 1/1;
-    background: #000;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-    margin-bottom: 25px;
+    position: relative; border-radius: 24px; overflow: hidden;
+    aspect-ratio: 1/1; background: #000; margin-bottom: 25px;
 }
-#reader { width: 100%; height: 100%; border: none !important; }
+
+/* Animasi untuk Item Tamu yang Baru Masuk */
+@keyframes slideIn {
+    from { 
+        opacity: 0; 
+        transform: translateY(-20px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0); 
+    }
+}
+
+.guest-item {
+    background: var(--bg); 
+    padding: 18px; 
+    border-radius: 20px; 
+    margin-bottom: 12px;
+    animation: slideIn 0.5s ease forwards; /* Efek masuk halus[cite: 3] */
+    box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+}
+
+/* Animasi untuk Modal Lock Screen[cite: 3] */
+#lock-screen {
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%;
+    background: var(--card); 
+    display: none; 
+    flex-direction: column;
+    justify-content: center; 
+    align-items: center; 
+    z-index: 100; 
+    text-align: center;
+    animation: fadeIn 0.3s ease; /* Muncul perlahan[cite: 3] */
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Efek tombol saat ditekan[cite: 3] */
+.btn:active {
+    transform: scale(0.95);
+    opacity: 0.8;
+}
+
+/* Scrollbar halus untuk daftar tamu[cite: 3] */
+#guest-list-container::-webkit-scrollbar {
+    width: 5px;
+}
+#guest-list-container::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+}
 
 #lock-screen {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    background: var(--card);
-    display: none; flex-direction: column;
-    justify-content: center; align-items: center;
-    z-index: 100; padding: 30px; text-align: center;
+    background: var(--card); display: none; flex-direction: column;
+    justify-content: center; align-items: center; z-index: 100; text-align: center;
 }
-.doa-card { font-family: 'Playfair Display', serif; font-style: italic; font-size: 18px; line-height: 1.6; margin: 20px 0; color: var(--text); }
 
 .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 25px; }
 .btn {
-    padding: 14px; border: none; border-radius: 16px;
-    font-weight: 600; cursor: pointer; font-size: 13px;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 14px; border-radius: 16px; border: none; font-weight: 600; 
+    cursor: pointer; font-size: 13px; text-align: center; text-decoration: none;
 }
 .btn-main { background: var(--primary); color: white; }
 .btn-outline { background: transparent; border: 1.5px solid var(--primary); color: var(--primary); }
 
-.list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-.badge { background: var(--bg); color: var(--primary); padding: 5px 12px; border-radius: 10px; font-weight: 700; font-size: 12px; }
-
 .guest-item {
-    background: var(--bg); padding: 18px; border-radius: 20px;
-    margin-bottom: 12px; position: relative;
-    animation: slideIn 0.4s ease;
+    background: var(--bg); padding: 18px; border-radius: 20px; margin-bottom: 12px;
 }
-@keyframes slideIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-
-.guest-info h4 { margin: 0; font-size: 15px; font-weight: 600; }
+.guest-info h4 { margin: 0; font-size: 15px; }
 .guest-info p { margin: 4px 0; font-size: 11px; color: var(--text-light); }
-.guest-footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10px; }
-.guest-doa { font-size: 11px; font-style: italic; color: var(--primary); max-width: 80%; }
 
-.delete-btn {
-    background: #FF7675; color: white; border: none;
-    width: 28px; height: 28px; border-radius: 8px;
-    cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;
-}
+.badge { background: var(--bg); color: var(--primary); padding: 5px 12px; border-radius: 10px; font-weight: 700; font-size: 12px; }
 
 #notif {
     position: fixed; top: 30px; left: 50%; transform: translateX(-50%);
-    padding: 12px 30px; border-radius: 50px; background: var(--text); color: var(--card);
-    font-weight: 600; display: none; z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-    font-size: 12px;
+    padding: 12px 30px; border-radius: 50px; background: #2D3436; color: white;
+    display: none; z-index: 1000; font-size: 12px;
 }

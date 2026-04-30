@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Wedding Premium v6</title>
+    <title>Wedding Guest Scanner v6</title>
     
+    <!-- Library Utama -->
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Playfair+Display:ital,wght@0,700;1,600&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="theme-rose">
@@ -29,10 +30,9 @@
         <div class="scanner-wrapper">
             <div id="reader"></div>
             <div id="lock-screen">
-                <div style="font-size: 40px;">💌</div>
+                <div style="font-size: 40px;">✅</div>
                 <h2 id="modal-nama" style="margin: 15px 0 5px 0; font-family: 'Playfair Display';"></h2>
-                <div id="modal-doa" class="doa-card"></div>
-                <small style="color: var(--primary); letter-spacing: 2px; font-weight: 600;">KEHADIRAN ANDA ADALAH KADO TERINDAH</small>
+                <small style="color: var(--primary); letter-spacing: 2px; font-weight: 600;">BERHASIL DICATAT</small>
             </div>
         </div>
 
@@ -43,15 +43,16 @@
         </div>
 
         <div class="list-header">
-            <span style="font-weight: 600; font-size: 14px;">Daftar Tamu</span>
+            <span style="font-weight: 600; font-size: 14px;">Daftar Hadir Terkini</span>
             <span class="badge" id="count-tamu">0 Hadir</span>
         </div>
 
         <div id="guest-list-container" style="max-height: 350px; overflow-y: auto;">
-            </div>
+            <!-- List akan diisi oleh JS -->
+        </div>
 
         <div style="text-align: center; margin-top: 30px;">
-            <p onclick="clearAllData()" style="font-size: 10px; color: var(--text-light); text-decoration: underline; cursor: pointer; opacity: 0.5;">Hapus Seluruh Database</p>
+            <p style="font-size: 10px; color: var(--text-light); opacity: 0.5;">Sinkronisasi Real-time dengan Supabase Cloud</p>
         </div>
     </div>
 
